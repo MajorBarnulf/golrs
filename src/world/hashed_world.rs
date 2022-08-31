@@ -21,15 +21,11 @@ impl Chunk {
     }
 
     fn get_actives(&self) -> impl Iterator<Item = Pos> + '_ {
-        self.cells
-            .iter()
-            .enumerate()
-            .map(|(x, row)| {
-                row.iter().enumerate().filter_map(move |(y, cell)| {
-                    cell.is_active().then_some(pos!(x as i32, y as i32))
-                })
-            })
-            .flatten()
+        self.cells.iter().enumerate().flat_map(|(x, row)| {
+            row.iter()
+                .enumerate()
+                .filter_map(move |(y, cell)| cell.is_active().then_some(pos!(x as i32, y as i32)))
+        })
     }
 }
 
@@ -108,10 +104,9 @@ impl World for HashedWorld {
     fn actives(&self) -> Vec<Pos> {
         self.chunks
             .iter()
-            .map(|(ChunkPos(chunk_pos), chunk)| {
-                chunk.get_actives().map(|pos| chunk_pos.clone() + pos)
+            .flat_map(|(ChunkPos(chunk_pos), chunk)| {
+                chunk.get_actives().map(|pos| *chunk_pos + pos)
             })
-            .flatten()
             .collect()
     }
 }

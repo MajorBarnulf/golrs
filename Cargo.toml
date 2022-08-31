@@ -2,8 +2,10 @@
 name = "golrs"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "a TUI for vizualising a rust implementation of the game of life."
+authors = ["Matthieu JOLIMAITRE <matthieu@imagevo.fr>"]
+license = "MIT"
+repository = "https://github.com/MajorBarnulf/golrs"
 
 [dependencies]
-termion = "1.5.6"
+termion = "1.5"
