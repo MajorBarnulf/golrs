@@ -1,6 +1,6 @@
 use crate::Pos;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Cell {
     active: bool,
 }
@@ -16,12 +16,6 @@ impl Cell {
 
     pub fn is_active(&self) -> bool {
         self.active
-    }
-}
-
-impl Default for Cell {
-    fn default() -> Self {
-        Cell { active: false }
     }
 }
 

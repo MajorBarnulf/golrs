@@ -1,10 +1,13 @@
 use std::{
-    io::{stdin, stdout, Write},
+    io::{stdin, stdout},
     process::exit,
     sync::mpsc,
     thread::{self, JoinHandle},
     time::Duration,
 };
+
+pub use canvas::Canvas;
+mod canvas;
 
 use termion::{event::Key, input::TermRead, raw::IntoRawMode};
 
@@ -52,6 +55,8 @@ fn input_loop(sender: mpsc::Sender<InputCmd>) {
             Key::Down => InputCmd::Move(Dir::Down),
             Key::Left => InputCmd::Move(Dir::Left),
             Key::Right => InputCmd::Move(Dir::Right),
+            Key::Char('+') => InputCmd::Accelerate,
+            Key::Char('-') => InputCmd::Decelerate,
             _ => continue,
         };
 
@@ -62,6 +67,7 @@ fn input_loop(sender: mpsc::Sender<InputCmd>) {
 
 const VIEW_REFRESH_INTERVAL: Duration = Duration::from_millis(100);
 
+#[allow(unreachable_code)]
 fn view_loop<W>(handle: SimHandle<W>)
 where
     W: World,
@@ -69,52 +75,89 @@ where
     let (sender, receiver) = mpsc::channel();
     let _input_handle = thread::spawn(|| input_loop(sender));
 
-    let mut view_origin = pos!(0, 0);
+    let (x, y) = termion::terminal_size().unwrap();
+    let mut delay = 200u64;
+    let mut view_origin = pos!(-(x as i32) / 2, -(y as i32));
     loop {
-        handle_inputs(&receiver, &mut view_origin);
-        let world = handle.snapshot();
-        display_world(view_origin, world);
-        thread::sleep(VIEW_REFRESH_INTERVAL);
+        handle_inputs(&receiver, &mut view_origin, &mut delay);
+        handle.set_delay(delay);
+
+        let mut canvas = Canvas::from_screen();
+        grid_layer(&mut canvas, view_origin);
+        world_layer(&mut canvas, handle.snapshot(), view_origin);
+        title_layer(&mut canvas, handle.delay());
+        canvas.display();
     }
     drop(handle);
 }
 
-fn handle_inputs(receiver: &mpsc::Receiver<InputCmd>, view_origin: &mut Pos) {
-    if let Some(cmd) = receiver.try_recv().ok() {
+const MOVEMENT_STEP: i32 = 3;
+
+fn handle_inputs(receiver: &mpsc::Receiver<InputCmd>, view_origin: &mut Pos, delay: &mut u64) {
+    if let Ok(cmd) = receiver.recv_timeout(VIEW_REFRESH_INTERVAL) {
         match cmd {
-            InputCmd::Exit => exit(0),
+            InputCmd::Exit => {
+                println!("{}{}", termion::clear::All, termion::cursor::Goto(1, 1));
+                exit(0);
+            }
             InputCmd::Move(direction) => {
                 *view_origin = *view_origin
                     + match direction {
-                        Dir::Up => pos!(0, -4),
-                        Dir::Down => pos!(0, 4),
-                        Dir::Left => pos!(-4, 0),
-                        Dir::Right => pos!(4, 0),
+                        Dir::Up => pos!(0, -MOVEMENT_STEP),
+                        Dir::Down => pos!(0, MOVEMENT_STEP),
+                        Dir::Left => pos!(-2 * MOVEMENT_STEP, 0),
+                        Dir::Right => pos!(2 * MOVEMENT_STEP, 0),
                     }
             }
-            InputCmd::Accelerate => todo!(),
-            InputCmd::Decelerate => todo!(),
+            InputCmd::Accelerate => *delay -= 100,
+            InputCmd::Decelerate => *delay += 100,
         }
     }
 }
 
-fn display_world<W>(view_origin: Pos, world: W)
+fn grid_layer(canvas: &mut Canvas, view_origin: Pos) {
+    canvas.layer(|local_pos| {
+        let Pos { x, y } = local_pos + view_origin;
+        match (x % 16 == 0, y % 8 == 0) {
+            (true, true) => Some('┼'),
+            (true, _) => Some('│'),
+            (_, true) => Some('─'),
+            _ => None,
+        }
+    })
+}
+
+fn world_layer<W>(canvas: &mut Canvas, world: W, view_origin: Pos)
 where
     W: World,
 {
-    let (width, height) = termion::terminal_size().unwrap();
-    let mut result = String::new();
+    canvas.layer(|mut local_pos| {
+        local_pos.y *= 2;
+        let pos_top = local_pos + view_origin;
+        let top = world.get(pos_top).is_active();
+        let pos_bottom = pos_top + pos!(0, 1);
+        let bottom = world.get(pos_bottom).is_active();
 
-    for ly in 0..(height) {
-        let next_line = termion::cursor::Goto(1, ly + 1);
-        result += &format!("{next_line}");
-        for lx in 0..width {
-            let pos = view_origin + pos!(lx as i32, ly as i32);
-            let char = &if world.get(pos).is_active() { "#" } else { " " };
-            result += char
+        match (top, bottom) {
+            (true, true) => Some('█'),
+            (true, _) => Some('▀'),
+            (_, true) => Some('▄'),
+            _ => None,
         }
-    }
-    let clear = termion::clear::All;
-    print!("{clear}{result}");
-    stdout().flush().unwrap();
+    });
+}
+
+#[allow(clippy::useless_format)]
+fn title_layer(canvas: &mut Canvas, de: usize) {
+    let table = [
+        format!("│   <golrs>   | [+]: speed up  │"),
+        format!("│ delay:      | [-]: slow down │"),
+        format!("│  {de:>7} ms | [q]: quit      │"),
+        format!("└──────────────────────────────┘"),
+    ];
+    canvas.layer(|Pos { x, y }| {
+        table
+            .get(y as usize)
+            .and_then(|line| line.chars().nth(x as usize))
+    })
 }

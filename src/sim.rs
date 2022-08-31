@@ -33,24 +33,22 @@ where
     fn possible_change_pos(&self) -> impl Iterator<Item = Pos> + '_ {
         self.actives()
             .into_iter()
-            .map(|p| self.get_neighbors(p))
-            .flatten()
+            .flat_map(|p| self.get_neighbors(p))
     }
 
     pub fn get_neighbors(&self, pos: Pos) -> impl Iterator<Item = Pos> + '_ {
         (-1..=1)
-            .map(|x| (-1..=1).map(move |y| pos!(x, y)))
-            .flatten()
+            .flat_map(|x| (-1..=1).map(move |y| pos!(x, y)))
             .map(move |p| pos + p)
     }
 
     pub fn is_cell_alive(&self, pos: Pos) -> bool {
-        self.get(pos.clone()).is_active()
+        self.get(pos).is_active()
     }
 
     pub fn get_neighbor_count(&self, pos: Pos) -> usize {
         self.get_neighbors(pos)
-            .filter(|pos| self.is_cell_alive(pos.clone()))
+            .filter(|pos| self.is_cell_alive(*pos))
             .count()
     }
 
@@ -64,6 +62,8 @@ where
     W: World,
 {
     Snapshot(mpsc::Sender<W>),
+    SetDelay(u64),
+    Delay(mpsc::Sender<usize>),
 }
 
 pub struct SimHandle<W>
@@ -85,6 +85,16 @@ where
         let (sender, receiver) = mpsc::channel();
         self.sender.send(SimCmd::Snapshot(sender)).unwrap();
         receiver.recv().unwrap()
+    }
+
+    pub fn delay(&self) -> usize {
+        let (sender, receiver) = mpsc::channel();
+        self.sender.send(SimCmd::Delay(sender)).unwrap();
+        receiver.recv().unwrap()
+    }
+
+    pub fn set_delay(&self, delay_ms: u64) {
+        self.sender.send(SimCmd::SetDelay(delay_ms)).unwrap();
     }
 }
 
@@ -124,23 +134,25 @@ where
 }
 
 const EVT_CHECK_TIMEOUT: Duration = Duration::from_millis(10);
-const SIM_TICK_INTERVAL: Duration = Duration::from_millis(200);
 
 fn sim_loop<W>(receiver: mpsc::Receiver<SimCmd<W>>, state: State<W>)
 where
     W: World,
 {
+    let mut tick_interval = Duration::from_millis(200);
     let mut current_state = state;
     let mut last_update = SystemTime::now();
 
     loop {
-        if let Some(cmd) = receiver.try_recv().ok() {
+        if let Ok(cmd) = receiver.try_recv() {
             match cmd {
                 SimCmd::Snapshot(sender) => sender.send(current_state.snapshot()).unwrap(),
+                SimCmd::SetDelay(delay) => tick_interval = Duration::from_millis(delay),
+                SimCmd::Delay(sender) => sender.send(tick_interval.as_millis() as usize).unwrap(),
             }
         }
 
-        if SystemTime::now().duration_since(last_update).unwrap() > SIM_TICK_INTERVAL {
+        if SystemTime::now().duration_since(last_update).unwrap() > tick_interval {
             let old_state = current_state;
             let mut new_state: State<W> = State::default();
 
@@ -148,10 +160,10 @@ where
                 let is_active = old_state.is_cell_alive(pos);
                 let neighbor_count = old_state.get_neighbor_count(pos);
                 match (is_active, neighbor_count) {
-                    (true, count) if count < 3 || count > 4 => (),   // die
-                    (true, _) => new_state.set(pos, Cell::active()), // stay
+                    (true, count) if !(3..=4).contains(&count) => (), // die
+                    (true, _) => new_state.set(pos, Cell::active()),  // stay
                     (false, 3) => new_state.set(pos, Cell::active()), // becomes alive
-                    _ => (),                                         // stays dead
+                    _ => (),                                          // stays dead
                 }
             }
             current_state = new_state;

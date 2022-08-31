@@ -9,7 +9,7 @@ pub struct Pos {
 #[macro_export]
 macro_rules! pos {
     ($x:expr, $y:expr) => {
-        crate::Pos { x: $x, y: $y }
+        Pos { x: $x, y: $y }
     };
 }
 

@@ -17,12 +17,14 @@ fn deserialize(str: &str) -> Vec<Pos> {
     let mut pos = pos!(0, 0);
     for c in str.chars() {
         match c {
-            '#' => {
+            ' ' => {
+                pos.x += 1;
+            }
+            '\n' => pos = pos!(0, pos.y + 1),
+            _ => {
                 result.push(pos);
                 pos.x += 1
             }
-            '\n' => pos = pos!(0, pos.y + 1),
-            _ => pos.x += 1,
         }
     }
     result
