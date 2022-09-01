@@ -81,10 +81,12 @@ where
     loop {
         handle_inputs(&receiver, &mut view_origin, &mut delay);
         handle.set_delay(delay);
+        let world = handle.snapshot();
 
         let mut canvas = Canvas::from_screen();
+        dbg_layer(&mut canvas, &world, view_origin);
         grid_layer(&mut canvas, view_origin);
-        world_layer(&mut canvas, handle.snapshot(), view_origin);
+        world_layer(&mut canvas, &world, view_origin);
         title_layer(&mut canvas, handle.delay());
         canvas.display();
     }
@@ -109,7 +111,11 @@ fn handle_inputs(receiver: &mpsc::Receiver<InputCmd>, view_origin: &mut Pos, del
                         Dir::Right => pos!(2 * MOVEMENT_STEP, 0),
                     }
             }
-            InputCmd::Accelerate => *delay -= 100,
+            InputCmd::Accelerate => {
+                if *delay > 0 {
+                    *delay -= 100
+                }
+            }
             InputCmd::Decelerate => *delay += 100,
         }
     }
@@ -127,7 +133,7 @@ fn grid_layer(canvas: &mut Canvas, view_origin: Pos) {
     })
 }
 
-fn world_layer<W>(canvas: &mut Canvas, world: W, view_origin: Pos)
+fn world_layer<W>(canvas: &mut Canvas, world: &W, view_origin: Pos)
 where
     W: World,
 {
@@ -160,4 +166,19 @@ fn title_layer(canvas: &mut Canvas, de: usize) {
             .get(y as usize)
             .and_then(|line| line.chars().nth(x as usize))
     })
+}
+
+fn dbg_layer<W>(canvas: &mut Canvas, world: &W, view_origin: Pos)
+where
+    W: World,
+{
+    canvas.layer(|local_pos| {
+        let pos = screen_pos_to_world(local_pos, view_origin);
+        world.dbg_is_loaded(pos).then_some('.')
+    })
+}
+
+fn screen_pos_to_world(mut pos: Pos, screen_origin: Pos) -> Pos {
+    pos.y *= 2;
+    pos + screen_origin
 }

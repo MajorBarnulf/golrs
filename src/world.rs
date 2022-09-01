@@ -23,6 +23,7 @@ pub trait World: Default + Clone + Send + 'static {
     fn get(&self, pos: Pos) -> Cell;
     fn set(&mut self, pos: Pos, cell: Cell);
     fn actives(&self) -> Vec<Pos>;
+    fn dbg_is_loaded(&self, pos: Pos) -> bool;
 }
 
 pub use hashed_world::HashedWorld;

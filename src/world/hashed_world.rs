@@ -109,4 +109,8 @@ impl World for HashedWorld {
             })
             .collect()
     }
+
+    fn dbg_is_loaded(&self, pos: Pos) -> bool {
+        self.get_chunk(pos).is_some()
+    }
 }
