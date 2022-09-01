@@ -13,5 +13,5 @@ This is a TUI for vizualising a rust implementation of the game of life
 With cargo
 
 ```sh
-cargo install glors
+cargo install golrs
 ```
