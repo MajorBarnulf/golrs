@@ -41,6 +41,7 @@ pub enum Dir {
 #[derive(Debug)]
 pub enum InputCmd {
     Exit,
+    ToggleDebug,
     Move(Dir),
     Accelerate,
     Decelerate,
@@ -51,6 +52,7 @@ fn input_loop(sender: mpsc::Sender<InputCmd>) {
     for c in stdin().keys() {
         let command = match c.unwrap() {
             Key::Char('q') => InputCmd::Exit,
+            Key::Char('d') => InputCmd::ToggleDebug,
             Key::Up => InputCmd::Move(Dir::Up),
             Key::Down => InputCmd::Move(Dir::Down),
             Key::Left => InputCmd::Move(Dir::Left),
@@ -76,15 +78,18 @@ where
     let _input_handle = thread::spawn(|| input_loop(sender));
 
     let (x, y) = termion::terminal_size().unwrap();
-    let mut delay = 200u64;
+    let mut tick_delay = 200u64;
     let mut view_origin = pos!(-(x as i32) / 2, -(y as i32));
+    let mut debug = false;
     loop {
-        handle_inputs(&receiver, &mut view_origin, &mut delay);
-        handle.set_delay(delay);
+        handle_inputs(&receiver, &mut view_origin, &mut debug, &mut tick_delay);
+        handle.set_delay(tick_delay);
         let world = handle.snapshot();
 
         let mut canvas = Canvas::from_screen();
-        dbg_layer(&mut canvas, &world, view_origin);
+        if debug {
+            dbg_layer(&mut canvas, &world, view_origin);
+        }
         grid_layer(&mut canvas, view_origin);
         world_layer(&mut canvas, &world, view_origin);
         title_layer(&mut canvas, handle.delay());
@@ -95,13 +100,19 @@ where
 
 const MOVEMENT_STEP: i32 = 3;
 
-fn handle_inputs(receiver: &mpsc::Receiver<InputCmd>, view_origin: &mut Pos, delay: &mut u64) {
+fn handle_inputs(
+    receiver: &mpsc::Receiver<InputCmd>,
+    view_origin: &mut Pos,
+    debug: &mut bool,
+    delay: &mut u64,
+) {
     if let Ok(cmd) = receiver.recv_timeout(VIEW_REFRESH_INTERVAL) {
         match cmd {
             InputCmd::Exit => {
                 println!("{}{}", termion::clear::All, termion::cursor::Goto(1, 1));
                 exit(0);
             }
+            InputCmd::ToggleDebug => *debug = !*debug,
             InputCmd::Move(direction) => {
                 *view_origin = *view_origin
                     + match direction {
@@ -157,7 +168,8 @@ where
 fn title_layer(canvas: &mut Canvas, de: usize) {
     let table = [
         format!("│   <golrs>   | [+]: speed up  │"),
-        format!("│ delay:      | [-]: slow down │"),
+        format!("│             | [-]: slow down │"),
+        format!("│ tick delay: | [d]: debug     │"),
         format!("│  {de:>7} ms | [q]: quit      │"),
         format!("└──────────────────────────────┘"),
     ];
@@ -183,6 +195,7 @@ fn screen_pos_to_world(mut pos: Pos, view_origin: Pos) -> Pos {
     pos + view_origin
 }
 
+/// double module to avoid irregularities between negatives and positives
 fn dmod(a: i32, module: i32) -> i32 {
     ((a % module) + module) % module
 }
