@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use metrohash::MetroBuildHasher;
+
 use crate::{pos, Cell, Pos, World};
 
 const CHUNK_SIZE: usize = 16;
@@ -34,7 +36,7 @@ struct ChunkPos(Pos);
 
 #[derive(Debug, Clone, Default)]
 pub struct HashedWorld {
-    chunks: HashMap<ChunkPos, Chunk>,
+    chunks: HashMap<ChunkPos, Chunk, MetroBuildHasher>,
 }
 
 impl HashedWorld {

@@ -9,3 +9,4 @@ repository = "https://github.com/MajorBarnulf/golrs"
 
 [dependencies]
 termion = "1.5"
+metrohash = "1.0"
