@@ -123,8 +123,8 @@ fn handle_inputs(receiver: &mpsc::Receiver<InputCmd>, view_origin: &mut Pos, del
 
 fn grid_layer(canvas: &mut Canvas, view_origin: Pos) {
     canvas.layer(|local_pos| {
-        let Pos { x, y } = local_pos + view_origin;
-        match (x % 16 == 0, y % 8 == 0) {
+        let Pos { x, y } = screen_pos_to_world(local_pos, view_origin);
+        match (x % 16 == 0, dmod(y, 16) <= 1) {
             (true, true) => Some('┼'),
             (true, _) => Some('│'),
             (_, true) => Some('─'),
@@ -178,7 +178,11 @@ where
     })
 }
 
-fn screen_pos_to_world(mut pos: Pos, screen_origin: Pos) -> Pos {
+fn screen_pos_to_world(mut pos: Pos, view_origin: Pos) -> Pos {
     pos.y *= 2;
-    pos + screen_origin
+    pos + view_origin
+}
+
+fn dmod(a: i32, module: i32) -> i32 {
+    ((a % module) + module) % module
 }
