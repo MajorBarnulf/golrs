@@ -1,6 +1,6 @@
 [package]
 name = "golrs"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "a TUI for vizualising a rust implementation of the game of life."
 authors = ["Matthieu JOLIMAITRE <matthieu@imagevo.fr>"]

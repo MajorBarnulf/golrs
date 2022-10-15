@@ -2,6 +2,10 @@
 
 const { args } = Deno;
 
+if (args[0] == "--help") {
+	console.log("usage: [bin] <size> <frequency>");
+}
+
 const size = parseInt(args[0] ?? "5");
 const frequency = parseFloat(args[1] ?? "0.5");
 

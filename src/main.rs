@@ -13,34 +13,34 @@ pub use view::View;
 mod view;
 
 fn deserialize(str: &str) -> Vec<Pos> {
-    let mut result = vec![];
-    let mut pos = pos!(0, 0);
-    for c in str.chars() {
-        match c {
-            ' ' => {
-                pos.x += 1;
-            }
-            '\n' => pos = pos!(0, pos.y + 1),
-            _ => {
-                result.push(pos);
-                pos.x += 1
-            }
-        }
-    }
-    result
+	let mut result = vec![];
+	let mut pos = pos!(0, 0);
+	for c in str.chars() {
+		match c {
+			' ' => {
+				pos.x += 1;
+			}
+			'\n' => pos = pos!(0, pos.y + 1),
+			_ => {
+				result.push(pos);
+				pos.x += 1
+			}
+		}
+	}
+	result
 }
 
 pub fn main() {
-    let path = args().nth(1).unwrap_or_else(|| {
-        eprintln!("[error] must provide a path argument");
-        exit(1);
-    });
+	let path = args().nth(1).unwrap_or_else(|| {
+		eprintln!("[error] must provide a path argument");
+		exit(1);
+	});
 
-    let content = fs::read_to_string(path).unwrap();
-    let actives = deserialize(&content);
-    let simulation = Sim::spawn(actives);
-    let view = View::spawn::<HashedWorld>(simulation.handle());
+	let content = fs::read_to_string(path).unwrap();
+	let actives = deserialize(&content);
+	let simulation = Sim::<HashedWorld>::spawn(actives);
+	let view = View::spawn(simulation.handle());
 
-    simulation.join();
-    view.join();
+	simulation.join();
+	view.join();
 }
