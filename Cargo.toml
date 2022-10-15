@@ -6,6 +6,7 @@ description = "a TUI for vizualising a rust implementation of the game of life."
 authors = ["Matthieu JOLIMAITRE <matthieu@imagevo.fr>"]
 license = "MIT"
 repository = "https://github.com/MajorBarnulf/golrs"
+homepage = "https://github.com/MajorBarnulf/golrs"
 
 [dependencies]
 termion = "1.5"
